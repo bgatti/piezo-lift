@@ -72,3 +72,9 @@ tr:nth-child(even) {
 p {
     margin-top: 0;
 }
+
+@media (max-width: 600px) {
+    #performance-plots {
+        min-height: 500px;
+    }
+}

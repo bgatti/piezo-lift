@@ -1,19 +1,20 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- Data ---
     const batteries = [
-        { model: 'CR1025', weight: 0.7, max_power_mW: 50 },
-        { model: 'CR1225', weight: 1.2, max_power_mW: 70 },
-        { model: 'CR1616', weight: 1.2, max_power_mW: 80 },
-        { model: 'CR2032', weight: 3.1, max_power_mW: 220 },
-        { model: 'Z-TAG 12', weight: 0.012, max_power_mW: 0.1 },
-        { model: 'Cymbet EnerChip', weight: 0.5, max_power_mW: 40 },
-        { model: 'CR2450', weight: 6.2, max_power_mW: 600 },
-        { model: 'Panasonic ML614', weight: 0.23, max_power_mW: 15 },
-        { model: 'SparkFun Lipo 40mAh', weight: 1.0, max_power_mW: 800 },
-        { model: 'GNB27 30mAh', weight: 0.8, max_power_mW: 600 },
-        { model: 'Full-River 22mAh', weight: 0.6, max_power_mW: 440 },
-        { model: 'Molight 12mAh', weight: 0.4, max_power_mW: 240 },
-        { model: '5mAh Lipo', weight: 0.2, max_power_mW: 100 },
+        // model, weight_g, max_power_mW, capacity_mAh, voltage_V
+        { model: 'CR1025', weight: 0.7, max_power_mW: 50, capacity_mAh: 30, voltage_V: 3.0 },
+        { model: 'CR1225', weight: 1.2, max_power_mW: 70, capacity_mAh: 50, voltage_V: 3.0 },
+        { model: 'CR1616', weight: 1.2, max_power_mW: 80, capacity_mAh: 55, voltage_V: 3.0 },
+        { model: 'CR2032', weight: 3.1, max_power_mW: 220, capacity_mAh: 225, voltage_V: 3.0 },
+        { model: 'Z-TAG 12', weight: 0.012, max_power_mW: 0.1, capacity_mAh: 0.1, voltage_V: 3.0 },
+        { model: 'Cymbet EnerChip', weight: 0.5, max_power_mW: 40, capacity_mAh: 5, voltage_V: 3.7 },
+        { model: 'CR2450', weight: 6.2, max_power_mW: 600, capacity_mAh: 620, voltage_V: 3.0 },
+        { model: 'Panasonic ML614', weight: 0.23, max_power_mW: 15, capacity_mAh: 3.4, voltage_V: 3.0 },
+        { model: 'SparkFun Lipo 40mAh', weight: 1.0, max_power_mW: 800, capacity_mAh: 40, voltage_V: 3.7 },
+        { model: 'GNB27 30mAh', weight: 0.8, max_power_mW: 600, capacity_mAh: 30, voltage_V: 3.7 },
+        { model: 'Full-River 22mAh', weight: 0.6, max_power_mW: 440, capacity_mAh: 22, voltage_V: 3.7 },
+        { model: 'Molight 12mAh', weight: 0.4, max_power_mW: 240, capacity_mAh: 12, voltage_V: 3.7 },
+        { model: '5mAh Lipo', weight: 0.2, max_power_mW: 100, capacity_mAh: 5, voltage_V: 3.7 },
     ];
 
     const actuators = [
@@ -173,6 +174,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         totalWeight_g: point.weight,
                         actuator_model: point.actuator,
                         actuator_weight: actuator.weight_g,
+                        battery: battery, // Pass the whole battery object
                         battery_model: point.battery,
                         battery_weight: battery.weight,
                         wing_weight: 2 * wing_weight_g,
@@ -234,7 +236,15 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const { liftToWeightRatio, wingspan_cm, lift_g, totalWeight_g, actuator_model, battery_model, theta_deg, constraint } = performance;
+        const { liftToWeightRatio, wingspan_cm, lift_g, totalWeight_g, actuator_model, battery, theta_deg, constraint } = performance;
+
+        // --- Flight Time Calculation ---
+        const boostEfficiency = 0.85;
+        const powerConsumption_mW = constraint.value / boostEfficiency;
+        const batteryEnergy_mWh = battery.capacity_mAh * battery.voltage_V;
+        const flightTime_minutes = (batteryEnergy_mWh / powerConsumption_mW) * 60;
+        const flightTime_display = flightTime_minutes >= 1 ? `${flightTime_minutes.toFixed(1)} minutes` : `${(flightTime_minutes * 60).toFixed(0)} seconds`;
+
 
         contentDiv.innerHTML = `
             <h3>Peak Performance Analysis</h3>
@@ -242,11 +252,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 The highest calculated lift-to-weight ratio is <strong>${liftToWeightRatio.toFixed(2)}</strong>.
             </p>
             <ul>
-                <li><strong>Configuration:</strong> ${actuator_model} with ${battery_model}</li>
+                <li><strong>Configuration:</strong> ${actuator_model} with ${battery.model}</li>
                 <li><strong>Wingspan:</strong> ${wingspan_cm.toFixed(1)} cm</li>
                 <li><strong>Stroke Angle:</strong> ${theta_deg.toFixed(1)}°</li>
                 <li><strong>Calculated Lift:</strong> ${lift_g.toFixed(2)} g</li>
                 <li><strong>Total Weight:</strong> ${totalWeight_g.toFixed(2)} g</li>
+                <li><strong>Estimated Flight Time:</strong> ${flightTime_display}</li>
             </ul>
 
             <h3>Powertrain Analysis at Peak</h3>
