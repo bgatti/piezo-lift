@@ -1,0 +1,74 @@
+body {
+    font-family: sans-serif;
+    line-height: 1.6;
+    margin: 20px;
+    background-color: #f9f9f9;
+    color: #333;
+}
+
+h1, h2, h3 {
+    line-height: 1.2;
+    color: #005a9c;
+}
+
+h1 {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+section {
+    background: #fff;
+    padding: 20px;
+    margin-bottom: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.table-container {
+    display: flex;
+    justify-content: space-around;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.table-wrapper {
+    flex: 1;
+    min-width: 400px; /* Prevents tables from becoming too narrow */
+    margin-bottom: 20px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+
+th, td {
+    border: 1px solid #ddd;
+    padding: 10px;
+    text-align: left;
+}
+
+th {
+    background-color: #f2f2f2;
+    font-weight: bold;
+}
+
+tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+#performance-plots {
+    width: 95%;
+    max-width: 900px;
+    margin: auto;
+    margin-top: 20px;
+}
+
+.slider-container {
+    margin-bottom: 15px;
+}
+
+p {
+    margin-top: 0;
+}

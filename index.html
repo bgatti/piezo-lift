@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Piezoelectric Ornithopter Power Budget</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <h1>Piezoelectric Ornithopter Power Budget Analysis</h1>
+
+    <section id="controls-section">
+        <h2>Controls</h2>
+        <div class="slider-container">
+            <label for="stroke-angle-slider">Stroke Angle (Degrees): <span id="stroke-angle-value">57</span>°</label>
+            <input type="range" id="stroke-angle-slider" min="20" max="80" value="57" step="1">
+        </div>
+        <div class="slider-container">
+            <label for="max-wingspan-slider">Maximum Wing Span (cm): <span id="max-wingspan-value">25</span> cm</label>
+            <input type="range" id="max-wingspan-slider" min="1" max="50" value="25" step="1">
+        </div>
+    </section>
+
+    <section id="analysis-section">
+        <h2>Performance Plot</h2>
+        <div id="performance-plots"></div>
+    </section>
+
+    <section id="discussion-section">
+        <h2>Discussion</h2>
+        <div id="discussion-content"></div>
+    </section>
+
+    <section id="weight-summary-section">
+        <h2>Weight Breakdown at Peak Performance</h2>
+        <div id="weight-summary-content"></div>
+    </section>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
