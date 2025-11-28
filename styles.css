@@ -90,3 +90,90 @@ tr:nth-child(even) {
 p {
     margin-top: 0;
 }
+
+/* --- Responsive Chart & Legend --- */
+#performance-plots {
+    height: 50vh; /* Give canvas a responsive height */
+    min-height: 400px;
+}
+
+.chart-legend {
+    width: 95%;
+    max-width: 900px;
+    margin: 10px auto;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background-color: #f9f9f9;
+}
+
+.chart-legend h3 {
+    margin: 0 0 10px 0;
+    font-size: 1em;
+    text-align: center;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+    padding: 4px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.legend-item:hover {
+    background-color: #efefef;
+}
+
+.legend-color-box {
+    width: 25px;
+    height: 15px;
+    margin-right: 10px;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.legend-label {
+    font-size: 0.85em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* CASSANDRA-714: Responsive improvements for mobile */
+@media (max-width: 768px) {
+    body {
+        margin: 10px;
+    }
+    
+    h1 {
+        font-size: 1.5em;
+    }
+
+    section {
+        padding: 15px;
+    }
+
+    .slider-container {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .slider-container label {
+        flex-basis: auto;
+        margin-bottom: 5px;
+    }
+    
+    .chart-legend {
+        /* On small screens, arrange legend items in columns */
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 5px;
+    }
+    
+    .legend-label {
+        font-size: 0.8em; /* Smaller font on mobile */
+    }
+}

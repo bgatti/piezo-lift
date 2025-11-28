@@ -189,6 +189,24 @@ document.addEventListener('DOMContentLoaded', () => {
         return performanceData;
     }
 
+    function generateCustomLegend(chart) {
+        const legendContainer = document.getElementById('chart-legend');
+        if (!legendContainer) return;
+
+        const legendItems = chart.data.datasets.map(dataset => {
+            // Updated to be more brief
+            const label = dataset.label.replace(' (w/ ', ' + ');
+            return `
+                <div class="legend-item" role="button" aria-label="Toggle dataset ${label}">
+                    <span class="legend-color-box" style="background-color:${dataset.borderColor}"></span>
+                    <span class="legend-label">${label}</span>
+                </div>
+            `;
+        }).join('');
+
+        legendContainer.innerHTML = `<h3>Legend</h3>${legendItems}`;
+    }
+
     function createOrUpdatePerformancePlot(theta_rad, max_wingspan_cm) {
         const plotsContainer = document.getElementById('performance-plots');
         if (!plotsContainer) return;
@@ -212,7 +230,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         totalWeight_g: point.weight,
                         actuator_model: point.actuator,
                         actuator_weight: actuator.weight_g,
-                        battery: battery, // Pass the whole battery object
+                        battery: battery,
                         battery_model: point.battery,
                         battery_weight: battery.weight,
                         wing_weight: 2 * wing_weight_g,
@@ -245,22 +263,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 data: { datasets },
                 options: {
                     responsive: true,
+                    maintainAspectRatio: false, // Better for mobile
                     plugins: {
-                        title: { display: true, text: 'Actuator Performance: Lift-to-Weight Ratio vs. Wingspan' },
+                        legend: {
+                            display: false // Disable default legend
+                        },
+                        title: { display: true, text: 'Actuator Performance: L/W Ratio vs. Wingspan' },
                         tooltip: {
                             callbacks: {
                                 title: (context) => `Wingspan: ${context[0].raw.x.toFixed(1)} cm`,
-                                label: (context) => `${context.dataset.label}: ${context.raw.y.toFixed(2)} L/W Ratio`
+                                label: (context) => {
+                                    const shortLabel = context.dataset.label.replace(' (w/ ', ' + ');
+                                    return `${shortLabel}: ${context.raw.y.toFixed(2)} L/W Ratio`;
+                                }
                             }
                         }
                     },
                     scales: {
                         x: { type: 'logarithmic', title: { display: true, text: 'Wingspan (cm)' } },
-                        y: { title: { display: true, text: 'Lift-to-Weight Ratio' }, beginAtZero: true }
+                        y: { title: { display: true, text: 'L/W Ratio' }, beginAtZero: true }
                     }
                 }
             });
         }
+        
+        generateCustomLegend(performanceChart);
         updateDiscussion(bestPerformance);
         updateWeightSummary(bestPerformance);
     }
