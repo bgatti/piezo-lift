@@ -43,11 +43,42 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const otherComponentsWeight = {
-        electronics_g: 0.5, // Flex PCB, nRF MCU, IMU, etc.
+        // electronics_g is now calculated dynamically
         airframe_g: 0.3,    // Airframe and wing mechanism
     };
 
     let performanceChart = null; // To hold the chart instance
+    let totalElectronicsWeight_g = 0; // To be populated from the DOM
+
+    function calculateElectronicsWeight() {
+        const table = document.querySelector('#electronics-section table');
+        if (!table) return 0.5; // Fallback if table not found
+
+        const rows = table.querySelectorAll('tbody tr');
+        let total_mg = 0;
+
+        rows.forEach(row => {
+            const cell = row.cells[1]; // Get the 'Weight (mg)' cell
+            if (cell) {
+                // Extracts numbers from strings like "~94 mg" or "94 mg"
+                const match = cell.textContent.match(/[\d.]+/);
+                if (match) {
+                    total_mg += parseFloat(match[0]);
+                }
+            }
+        });
+        
+        // Use the footer's total if it exists, as it's the official sum
+        const footer = table.querySelector('tfoot tr td');
+        if (footer) {
+            const match = footer.textContent.match(/(\d+\.?\d*)\s*mg/);
+             if (match) {
+                total_mg = parseFloat(match[1]);
+             }
+        }
+
+        return total_mg / 1000; // Convert to grams
+    }
 
     function findLightestBattery(actuator, batteries) {
         const suitableBatteries = batteries.filter(b => b.max_power_mW >= actuator.max_power_mW_est);
@@ -64,24 +95,27 @@ document.addEventListener('DOMContentLoaded', () => {
         return requiredPower_W * 1000; // Return in mW
     }
 
-    function calculatePowerLimitedLift(actuator, battery, wingspan_m, wingArea_m2, theta_rad) {
-        // --- POWER TRAIN ANALYSIS ---
+    function calculatePowerLimitedLift(actuator, battery, wingspan_m, wingArea_m2, theta_rad, totalWeight_g) {
+        // --- ANALYSIS BASED ON MAX SAFE FREQUENCY ---
         const cAir = 340; // m/s
         const maLimit = 0.3;
         const max_safe_freq_for_wing = (maLimit * cAir) / (2 * Math.PI * theta_rad * wingspan_m);
         const effective_freq_Hz = Math.min(actuator.max_power_freq_Hz, max_safe_freq_for_wing);
 
-        // 1. Calculate max power for each stage
-        const power_at_max_freq_mW = getRequiredPower(wingspan_m, effective_freq_Hz, theta_rad);
-        
-        // 2. Identify the constraining component
+        // 1. Calculate the THEORETICAL lift and power at the effective max frequency.
+        const amplitude_m = wingspan_m * Math.tan(theta_rad);
+        const avg_wing_speed_m_s = amplitude_m * effective_freq_Hz;
+        const lift_N = 0.5 * wingConstants.airDensity_kg_m3 * wingArea_m2 * Math.pow(avg_wing_speed_m_s, 2) * wingConstants.liftCoefficient;
+        const theoretical_lift_g = (lift_N / 9.81) * 1000;
+        const powerRequiredForTheoreticalLift_mW = getRequiredPower(wingspan_m, effective_freq_Hz, theta_rad);
+
+        // 2. Determine the actual available power from the hardware.
         const power_sources = {
             'Battery': battery.max_power_mW,
             'Actuator': actuator.max_power_mW_est,
-            'Wing Structure @ Max Safe Freq': power_at_max_freq_mW,
         };
-
-        let constraint_name = '';
+        
+        let constraint_name = 'Theoretical Lift';
         let availablePower_mW = Infinity;
         for (const [name, power] of Object.entries(power_sources)) {
             if (power < availablePower_mW) {
@@ -90,20 +124,20 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        const sum_of_powers = Object.values(power_sources).reduce((a, b) => a + b, 0);
-        const constraint_ratio = sum_of_powers / availablePower_mW;
-
-        // --- LIFT CALCULATION ---
-        const requiredPower_mW = getRequiredPower(wingspan_m, effective_freq_Hz, theta_rad);
-        const amplitude_m = wingspan_m * Math.tan(theta_rad);
-        const avg_wing_speed_m_s = amplitude_m * effective_freq_Hz;
-        const lift_N = 0.5 * wingConstants.airDensity_kg_m3 * wingArea_m2 * Math.pow(avg_wing_speed_m_s, 2) * wingConstants.liftCoefficient;
-        const theoretical_lift_g = (lift_N / 9.81) * 1000;
+        // 3. Scale the lift if available power is less than what's required for max theoretical lift.
         let final_lift_g = theoretical_lift_g;
-
-        if (requiredPower_mW > availablePower_mW && requiredPower_mW > 0) {
-            const powerRatio = availablePower_mW / requiredPower_mW;
+        if (powerRequiredForTheoreticalLift_mW > availablePower_mW && powerRequiredForTheoreticalLift_mW > 0) {
+            const powerRatio = availablePower_mW / powerRequiredForTheoreticalLift_mW;
+            // Lift is proportional to v^2, and power is proportional to v^3 (roughly). A common simplification is Lift ~ Power^(2/3).
             final_lift_g = theoretical_lift_g * Math.pow(powerRatio, 2 / 3);
+        }
+
+        // 4. Calculate the power demanded to hover (lift = total weight)
+        let hoverPowerDemand_mW = 0;
+        if (theoretical_lift_g > 0) {
+            const liftRatio = totalWeight_g / theoretical_lift_g;
+            // Power scales with Lift^(3/2)
+            hoverPowerDemand_mW = powerRequiredForTheoreticalLift_mW * Math.pow(liftRatio, 3/2);
         }
 
         return {
@@ -111,23 +145,27 @@ document.addEventListener('DOMContentLoaded', () => {
             constraint: {
                 name: constraint_name,
                 value: availablePower_mW,
-                ratio: constraint_ratio,
-                powers: power_sources
+                demand: hoverPowerDemand_mW, // The demand is the power required to lift the total weight
+                powers: { ...power_sources, 'Theoretical Lift Power': powerRequiredForTheoreticalLift_mW },
             }
         };
     }
-
+    
     function calculatePerformance(actuator, battery, wingspan_m, theta_rad) {
-        const componentWeight_g = actuator.weight_g 
+        // 1. Calculate the total weight budget first
+        const componentWeight_g = actuator.weight_g
                                 + (battery ? battery.weight : 0)
-                                + otherComponentsWeight.electronics_g
+                                + totalElectronicsWeight_g
                                 + otherComponentsWeight.airframe_g;
         const wingspan_cm = wingspan_m * 100;
         const wing_weight_g = wingConstants.wingMassCoefficient * Math.pow(wingspan_cm, wingConstants.wingMassExponent);
-        const wingArea_m2 = Math.pow(wingspan_m, 2) / wingConstants.aspectRatio;
-
-        const { lift_g, constraint } = calculatePowerLimitedLift(actuator, battery, wingspan_m, wingArea_m2, theta_rad);
         const totalWeight_g = componentWeight_g + (2 * wing_weight_g);
+
+        // 2. Calculate lift based on the full weight budget
+        const wingArea_m2 = Math.pow(wingspan_m, 2) / wingConstants.aspectRatio;
+        const { lift_g, constraint } = calculatePowerLimitedLift(actuator, battery, wingspan_m, wingArea_m2, theta_rad, totalWeight_g);
+        
+        // 3. The ratio is now simply the generated lift vs the total weight
         const liftToWeightRatio = totalWeight_g > 0 ? lift_g / totalWeight_g : 0;
 
         return { liftToWeightRatio, lift_g, totalWeight_g, constraint };
@@ -178,7 +216,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         battery_model: point.battery,
                         battery_weight: battery.weight,
                         wing_weight: 2 * wing_weight_g,
-                        electronics_weight: otherComponentsWeight.electronics_g,
+                        electronics_weight: totalElectronicsWeight_g,
                         airframe_weight: otherComponentsWeight.airframe_g,
                         theta_deg: theta_rad * (180 / Math.PI),
                         constraint: point.constraint
@@ -239,17 +277,27 @@ document.addEventListener('DOMContentLoaded', () => {
         const { liftToWeightRatio, wingspan_cm, lift_g, totalWeight_g, actuator_model, battery, theta_deg, constraint } = performance;
 
         // --- Flight Time Calculation ---
-        const boostEfficiency = 0.85;
-        const powerConsumption_mW = constraint.value / boostEfficiency;
+        const boostEfficiency = 0.85; // Assumed efficiency of the voltage booster
+        
+        // Flight time based on running at the maximum available power (the bottleneck).
+        const actualPowerDraw_mW = constraint.value;
+        const powerConsumption_mW = actualPowerDraw_mW / boostEfficiency;
         const batteryEnergy_mWh = battery.capacity_mAh * battery.voltage_V;
-        const flightTime_minutes = (batteryEnergy_mWh / powerConsumption_mW) * 60;
-        const flightTime_display = flightTime_minutes >= 1 ? `${flightTime_minutes.toFixed(1)} minutes` : `${(flightTime_minutes * 60).toFixed(0)} seconds`;
+        const dischargeCurrent_mA = powerConsumption_mW / battery.voltage_V;
+        const cRate = dischargeCurrent_mA / battery.capacity_mAh;
 
+        let flightTime_display = 'N/A';
+        if (powerConsumption_mW > 0) {
+            const flightTime_hours = batteryEnergy_mWh / powerConsumption_mW;
+            const flightTime_minutes = flightTime_hours * 60;
+            flightTime_display = flightTime_minutes >= 1 ? `${flightTime_minutes.toFixed(1)} minutes` : `${(flightTime_minutes * 60).toFixed(0)} seconds`;
+        }
 
         contentDiv.innerHTML = `
             <h3>Peak Performance Analysis</h3>
             <p>
-                The highest calculated lift-to-weight ratio is <strong>${liftToWeightRatio.toFixed(2)}</strong>.
+                The highest calculated lift-to-weight ratio is <strong>${liftToWeightRatio.toFixed(2)}</strong>. 
+                A ratio of 1.0 or higher is required for flight.
             </p>
             <ul>
                 <li><strong>Configuration:</strong> ${actuator_model} with ${battery.model}</li>
@@ -257,16 +305,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 <li><strong>Stroke Angle:</strong> ${theta_deg.toFixed(1)}°</li>
                 <li><strong>Calculated Lift:</strong> ${lift_g.toFixed(2)} g</li>
                 <li><strong>Total Weight:</strong> ${totalWeight_g.toFixed(2)} g</li>
-                <li><strong>Estimated Flight Time:</strong> ${flightTime_display}</li>
+                <li><strong>Estimated Flight Time (at hover):</strong> ${flightTime_display}</li>
             </ul>
 
             <h3>Powertrain Analysis at Peak</h3>
             <ul>
-                <li><strong>Power Bottleneck:</strong> ${constraint.name} (${constraint.value.toFixed(1)} mW)</li>
-                <li><strong>Constraint Ratio:</strong> ${constraint.ratio.toFixed(2)} (Sum of all powers / Bottleneck power)</li>
-                <li><em>Battery Max Power:</em> ${constraint.powers['Battery'].toFixed(1)} mW</li>
-                <li><em>Actuator Est. Max Power:</em> ${constraint.powers['Actuator'].toFixed(1)} mW</li>
-                <li><em>Wing Max Power @ Freq:</em> ${constraint.powers['Wing Structure @ Max Safe Freq'].toFixed(1)} mW</li>
+                <li><strong>Power Bottleneck:</strong> ${constraint.name}</li>
+                <li><strong>Actual Power Draw:</strong> ${actualPowerDraw_mW.toFixed(1)} mW</li>
+                <li><strong>Theoretical Hover Power:</strong> ${constraint.demand.toFixed(1)} mW (power needed for L/W = 1.0)</li>
+                <br>
+                <li><strong>Battery Energy:</strong> ${batteryEnergy_mWh.toFixed(1)} mWh</li>
+                <li><strong>Discharge Rate:</strong> ${cRate.toFixed(1)}C</li>
             </ul>
 
             <h3>Underlying Assumptions</h3>
@@ -312,6 +361,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function setupControls() {
+        totalElectronicsWeight_g = calculateElectronicsWeight(); // Calculate on startup
+
         const angleSlider = document.getElementById('stroke-angle-slider');
         const angleValue = document.getElementById('stroke-angle-value');
         const wingspanSlider = document.getElementById('max-wingspan-slider');
@@ -320,10 +371,10 @@ document.addEventListener('DOMContentLoaded', () => {
         function updateVisualization() {
             const angle_deg = parseFloat(angleSlider.value);
             const theta_rad = angle_deg * (Math.PI / 180);
-            angleValue.textContent = angle_deg.toFixed(0);
+            angleValue.textContent = angle_deg.toFixed(0) + '°';
 
             const max_wingspan_cm = parseFloat(wingspanSlider.value);
-            wingspanValue.textContent = max_wingspan_cm.toFixed(0);
+            wingspanValue.textContent = max_wingspan_cm.toFixed(0) + ' cm';
 
             createOrUpdatePerformancePlot(theta_rad, max_wingspan_cm);
         }
