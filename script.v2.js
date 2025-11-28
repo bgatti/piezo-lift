@@ -245,6 +245,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 data: { datasets },
                 options: {
                     responsive: true,
+                    maintainAspectRatio: false,
                     plugins: {
                         title: { display: true, text: 'Actuator Performance: Lift-to-Weight Ratio vs. Wingspan' },
                         tooltip: {
