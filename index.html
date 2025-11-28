@@ -36,6 +36,58 @@
         <div id="weight-summary-content"></div>
     </section>
 
+    <section id="electronics-section">
+        <h2>Electronics Weight Budget</h2>
+        <table>
+            <caption>📦 Electronics Weight Budget (mg and grams)</caption>
+            <thead>
+                <tr>
+                    <th>Subsystem</th>
+                    <th>Weight (mg)</th>
+                    <th>Weight (g)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>High-Voltage Piezo Driver (DRV8662 + passives)</td>
+                    <td>~94 mg</td>
+                    <td>0.094 g</td>
+                </tr>
+                <tr>
+                    <td>MCU + decoupling</td>
+                    <td>~106 mg</td>
+                    <td>0.106 g</td>
+                </tr>
+                <tr>
+                    <td>IMU (LIS2DH12 + decoupling)</td>
+                    <td>~81 mg</td>
+                    <td>0.081 g</td>
+                </tr>
+                <tr>
+                    <td>GreenPAK Power/Logic IC + passives</td>
+                    <td>~13 mg</td>
+                    <td>0.013 g</td>
+                </tr>
+                <tr>
+                    <td>Extra passives + minimal connector</td>
+                    <td>~58 mg</td>
+                    <td>0.058 g</td>
+                </tr>
+                <tr>
+                    <td>Flex PCB (polyimide + copper + solder)</td>
+                    <td>~39 mg</td>
+                    <td>0.039 g</td>
+                </tr>
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td>🎯 Total Electronics Mass</td>
+                    <td colspan="2">391 mg = 0.391 g</td>
+                </tr>
+            </tfoot>
+        </table>
+    </section>
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="script.js"></script>
 </body>
